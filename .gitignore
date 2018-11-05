@@ -26,7 +26,11 @@
 *.a
 *.lib
 
+# CPLEX linear programming models
+*.lp
+
 # Executables
 *.exe
 *.out
 *.app
+mbct
