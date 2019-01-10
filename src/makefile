@@ -21,11 +21,11 @@ OPT				:= -march=native -Ofast -frename-registers -funroll-loops
 CXXFLAGS  		:= -g -std=c++17 $(OPT) $(MACROS) $(INC)
 
 # Compiler
-SRC       := argparse.cpp graph.cpp solver.cpp main.cpp
+SRC       := argparse.cpp solver.cpp main.cpp
 OBJ       := $(SRC:%.cpp=build/%.o)
 DEP       := $(SRC:%.cpp=deps/%.d)
 
-NAME      := cplex
+NAME      := mbct
 
 .PHONY: clean
 
@@ -43,11 +43,11 @@ build/%.o: %.cpp deps/%.d
 	$(CXX) $(CXXFLAGS) -c -o $(@) $(<)
 
 $(NAME): $(OBJ)
-	$(CXX) $(CXXFLAGS) $(OBJ) -o cplex $(LDLIBS) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(OBJ) -o $(NAME) $(LDLIBS) $(LDFLAGS)
 	@echo Compilation finished
 
 clean:
-	$(RM) $(OBJ) $(DEP) cplex
+	$(RM) $(OBJ) $(DEP) $(NAME)
 
 #ifneq ($(MAKECMDGOALS), clean)
 -include $(DEP)
