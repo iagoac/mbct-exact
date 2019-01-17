@@ -25,7 +25,7 @@ SRC       := argparse.cpp solver.cpp main.cpp
 OBJ       := $(SRC:%.cpp=build/%.o)
 DEP       := $(SRC:%.cpp=deps/%.d)
 
-NAME      := mbct
+NAME      := cplex
 
 .PHONY: clean
 

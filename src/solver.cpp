@@ -1,6 +1,6 @@
 #include "solver.hpp"
 
-void Solver::initialize() {
+void Solver::initialize(void) {
   #ifdef DEBUG
     std::cout << "Initializing the formulation..." << std::endl;
   #endif
@@ -9,8 +9,8 @@ void Solver::initialize() {
   then do not send the CPLEX
   output to the std::out  */
   #ifndef DEBUG // Please, be atent 'ifndef'
-    this->_cplex.setOut(this->_env.getNullStream());
-    this->_cplex.setWarning(this->_env.getNullStream());
+    this->cplex_->setOut(this->env_.getNullStream());
+    this->cplex_->setWarning(this->env_.getNullStream());
   #endif
 
   #ifdef DEBUG
@@ -45,8 +45,8 @@ void Solver::initialize() {
   #endif
 
   #ifdef DEBUG
-    /* Then, export the CPLEX model into file mymodel.lp */
-    this->_cplex.exportModel("model.lp");
+    /* Then, export the CPLEX model into file model.lp */
+    this->cplex_->exportModel("model.lp");
   #endif
 }
 
@@ -56,82 +56,73 @@ void Solver::create_variables(void) {
    uint i, j, k;
 
   /* x_{ij}^{k} \in {0,1} */
-  _x = IloIntVarMatrix3D(this->_env, this->_graph->size());
-  for (i = 0; i < this->_graph->size(); i++) {
-      _x[i] = IloIntVarMatrix(this->_env, this->_graph->size());
-      for (j = 0; j < this->_graph->size(); j++) {
-          _x[i][j] = IloIntVarArray(this->_env, this->_graph->size());
-          for (k = 0; k < this->_graph->size(); k++) {
-              char name[50];
-              sprintf(name, "x_%d_%d_%d", i, j, k);
-              _x[i][j][k] = IloIntVar(this->_env, 0, 1, name);
-          }
+  x_ = IloIntVarMatrix3D(this->env_, this->graph_.num_nodes());
+  for (i = 0; i < this->graph_.num_nodes(); i++) {
+    x_[i] = IloIntVarMatrix(this->env_, this->graph_.num_nodes());
+    for (j = 0; j < this->graph_.num_nodes(); j++) {
+      x_[i][j] = IloIntVarArray(this->env_, this->graph_.num_nodes());
+      for (k = 0; k < this->graph_.num_nodes(); k++) {
+        char name[50];
+        sprintf(name, "x_%d_%d_%d", i, j, k);
+        x_[i][j][k] = IloIntVar(this->env_, 0, 1, name);
       }
+    }
   }
 
   /* y \in R */
-  _y = IloNumVar(this->_env, 0, IloInfinity, "y");
+  y_ = IloNumVar(this->env_, 0, IloInfinity, "y");
 
   /* z_{ij} \in {0,1} */
-  _z = IloIntVarArray(this->_env, this->_graph->size());
-  for (i = 0; i < this->_graph->size(); i++) {
-      char name[50];
-      sprintf(name, "x_%d", i);
-      _z[i] = IloIntVar(this->_env, 0, 1, name);
+  z_ = IloIntVarMatrix(this->env_, this->graph_.num_nodes());
+  for (i = 0; i < this->graph_.num_nodes(); i++) {
+    z_[i] = IloIntVarArray(this->env_, this->graph_.num_nodes());
+      for (j = 0; j < this->graph_.num_nodes(); j++) {
+        char name[50];
+        sprintf(name, "x_%d_%d", i, j);
+        z_[i][j] = IloIntVar(this->env_, 0, 1, name);
+      }
   }
 }
 
 /* Create the objective function */
-void Solver::add_objective_z1(void) {
-  IloNumExpr expr(this->_env);
-  int size = this->_graph->size();
+void Solver::add_objective(void) {
+  IloNumExpr expr(this->env_);
 
-  /* min sum_{k \in V'} [ \sum_{(ij) \in A} ( u_{ij} y_{ij}^k) - x_k] */
-  for (int k = 1; k < size; k++) {
-      for (int i = 0; i < size; i++)  {
-          for (int j = 0; j < size; j++)  {
-              if (_graph->get_arc_cost(i,j) >= 1) {
-                  expr += this->_graph->get_arc_cost(i,j)*_x[i][j][k];
-              }
-          }
-      }
+  /* min \sum_{(ij) \in E} ( c_{ij} z_{ij})  */
+  for (int i = 0; i < this->graph_.num_nodes(); i++)  {
+    for (auto j : this->graph_.out_node[i]) {
+      expr += this->graph_.edge[i][j]*z_[i][j];
+    }
   }
 
-  this->_model.add(IloMinimize(this->_env, expr));
+  this->obj_ = IloObjective(this->env_, expr, IloObjective::Minimize);
+  this->model_->add(this->obj_);
   expr.end();
-}
-
-void Solver::add_objective_z2(void) {
-  this->_model.add(IloMinimize(this->_env, this->_y));
 }
 
 /* First constraint set. The classic multiflow constraints
 \sum_{(j,i) \in A} x_{ji}^k - \sum_{(i,j) \in A} x_{ij}^k = {-1, 0, 1}
 \forall j \in N, k \in N \ {r} */
 void Solver::flow_constraints(void) {
-  int size = this->_graph->size();
+  int size = this->graph_.num_nodes();
 
   for (int k = 1; k < size; k++) {
     for (int j = 0; j < size; j++) {
-      IloNumExpr expr(this->_env);
-      for (int l = 0; l < size; l++) {
-        if (this->_graph->get_arc_cost(j,l) >= 1) {
-          expr += _x[j][l][k];
-        }
+      IloNumExpr expr(this->env_);
+      for (auto l : this->graph_.out_node[j]) {
+        expr += x_[j][l][k];
       }
 
-      for (int i = 0; i < size; i++) {
-        if (this->_graph->get_arc_cost(i,j) >= 1) {
-          expr -= _x[i][j][k];
-        }
+      for (auto i : this->graph_.in_node[j]) {
+          expr -= x_[i][j][k];
       }
 
-      if (j == this->_s) {
-       this->_model.add(expr == 1);
+      if (j == this->root) {
+       this->model_->add(expr == 1);
       } else if (j == k) {
-        this->_model.add(expr == -1);
-      } else if (j != this->_s && j != k) {
-        this->_model.add(expr == 0);
+        this->model_->add(expr == -1);
+      } else if (j != this->root && j != k) {
+        this->model_->add(expr == 0);
       }
 
       expr.end();
@@ -140,58 +131,35 @@ void Solver::flow_constraints(void) {
 }
 
 /* Second constraint set
-x_{ij}^k \leq _z{ij}
+x_{ij}^k \leq z_{ij}
 \forall(i,j) \in A, k \in N \ {r} */
 void Solver::flow_on_tree_constraints(void) {
-  int size = this->_graph->size();
+  int size = this->graph_.num_nodes();
 
   for (int i = 0; i < size; i++)  {
-    for (int j = 0; j < size; j++) {
+    for (auto j : this->graph_.out_node[i]) {
       for(int k = 0 ; k < size ; k++) {
-        if (this->_graph->get_arc_cost(i,j) >= 1) {
-          this->_model.add(_x[i][j][k] <= _z[i][j]);
-        }
+        this->model_->add(x_[i][j][k] <= z_[i][j]);
       }
     }
   }
 }
 
 /* Third constraint set
-\sum_{(i,j) \in A} _z{ij} = |A|-1
-\forall(i,j) \in A,k \in N \ {r} */
+\sum_{(i,j) \in A} z_{ij} = |A|-1 */
 void Solver::number_of_edges_constraints(void) {
-  int size = this->_graph->size();
+  int size = this->graph_.num_nodes();
 
-  IloNumExpr expr(this->_env);
+  IloNumExpr expr(this->env_);
   for (int i = 0; i < size; i++)  {
-    for (int j = 0; j < size; j++) {
-      if (_graph->get_arc_cost(i,j) >= 1) {
-        expr += _z[i][j];
-      }
+    for (auto j : this->graph_.out_node[i]) {
+      expr += z_[i][j];
     }
   }
 
   IloInt tamanho_arvore = size - 1;
-  this->_model.add(expr == tamanho_arvore);
+  this->model_->add(expr == tamanho_arvore);
   expr.end();
-}
-
-/* Fourth constraint set
-y >= \sum_{(i,j) \in A} \error_j x_{ij}^k
-\forall k \in N {r} */
-void Solver::max_error(void) {
-  int size = this->_graph->size();
-
-  for (int k = 1; k < size; k++) {
-    IloNumExpr expr(this->_env);
-    for (int i = 0; i < size; i++)  {
-      for (int j = 0; j < size; j++) {
-        expr += this->_graph->gamma[j]*_x[i][j][k];
-      }
-    }
-    this->_model.add(_y >= expr);
-    expr.end();
-  }
 }
 
 /* Add all CPLEX constraints */
@@ -219,26 +187,25 @@ void Solver::add_constraints() {
   #ifdef DEBUG
     std::cout << "Done!" << std::endl;
   #endif
-
 }
 
 void Solver::set_cplex_params(void) {
-  this->_cplex.setParam(IloCplex::TiLim, 3600);
-  this->_cplex.setParam(IloCplex::Threads, 1);
-  // this->_cplex.setParam(IloCplex::Cliques, -1);
-  // this->_cplex.setParam(IloCplex::Covers, -1);
-  // this->_cplex.setParam(IloCplex::DisjCuts, -1);
-  // this->_cplex.setParam(IloCplex::FlowCovers, -1);
-  // this->_cplex.setParam(IloCplex::FlowPaths, -1);
-  // this->_cplex.setParam(IloCplex::GUBCovers, -1);
-  // this->_cplex.setParam(IloCplex::ImplBd, -1);
-  // this->_cplex.setParam(IloCplex::MIRCuts, -1);
-  // this->_cplex.setParam(IloCplex::FracCuts, -1);
-  // this->_cplex.setParam(IloCplex::ZeroHalfCuts, -1);
-  // this->_cplex.setParam(IloCplex::MIPSearch, CPX_MIPSEARCH_TRADITIONAL);
-  // this->_cplex.setParam(IloCplex::MIPInterval, 100);
-  // this->_cplex.setParam(IloCplex::PreInd, 0);
-  // this->_cplex.setParam(IloCplex::AggInd, 0);
-  // this->_cplex.setParam(IloCplex::HeurFreq, -1);
-  // this->_cplex.setParam(IloCplex::EpAGap, 0);
+  this->cplex_->setParam(IloCplex::TiLim, 3600);
+  this->cplex_->setParam(IloCplex::Threads, 1);
+  // this->cplex_->setParam(IloCplex::Cliques, -1);
+  // this->cplex_->setParam(IloCplex::Covers, -1);
+  // this->cplex_->setParam(IloCplex::DisjCuts, -1);
+  // this->cplex_->setParam(IloCplex::FlowCovers, -1);
+  // this->cplex_->setParam(IloCplex::FlowPaths, -1);
+  // this->cplex_->setParam(IloCplex::GUBCovers, -1);
+  // this->cplex_->setParam(IloCplex::ImplBd, -1);
+  // this->cplex_->setParam(IloCplex::MIRCuts, -1);
+  // this->cplex_->setParam(IloCplex::FracCuts, -1);
+  // this->cplex_->setParam(IloCplex::ZeroHalfCuts, -1);
+  // this->cplex_->setParam(IloCplex::MIPSearch, CPX_MIPSEARCH_TRADITIONAL);
+  // this->cplex_->setParam(IloCplex::MIPInterval, 100);
+  // this->cplex_->setParam(IloCplex::PreInd, 0);
+  // this->cplex_->setParam(IloCplex::AggInd, 0);
+  // this->cplex_->setParam(IloCplex::HeurFreq, -1);
+  // this->cplex_->setParam(IloCplex::EpAGap, 0);
 }
