@@ -90,7 +90,7 @@ void Solver::add_objective(void) {
 
   /* min \sum_{(ij) \in E} ( c_{ij} z_{ij})  */
   for (int i = 0; i < this->graph_.num_nodes(); i++)  {
-    for (auto j : this->graph_.out_node[i]) {
+    for (auto j : this->graph_.adjacency_list[i]) {
       expr += this->graph_.edge[i][j]*z_[i][j];
     }
   }
@@ -109,11 +109,11 @@ void Solver::flow_constraints(void) {
   for (int k = 1; k < size; k++) {
     for (int j = 0; j < size; j++) {
       IloNumExpr expr(this->env_);
-      for (auto l : this->graph_.out_node[j]) {
+      for (auto l : this->graph_.adjacency_list[j]) {
         expr += x_[j][l][k];
       }
 
-      for (auto i : this->graph_.in_node[j]) {
+      for (auto i : this->graph_.adjacency_list[j]) {
           expr -= x_[i][j][k];
       }
 
@@ -137,8 +137,8 @@ void Solver::flow_on_tree_constraints(void) {
   int size = this->graph_.num_nodes();
 
   for (int i = 0; i < size; i++)  {
-    for (auto j : this->graph_.out_node[i]) {
-      for(int k = 0 ; k < size ; k++) {
+    for (auto j : this->graph_.adjacency_list[i]) {
+      for(int k = 1 ; k < size ; k++) {
         this->model_->add(x_[i][j][k] <= z_[i][j]);
       }
     }
@@ -152,7 +152,7 @@ void Solver::number_of_edges_constraints(void) {
 
   IloNumExpr expr(this->env_);
   for (int i = 0; i < size; i++)  {
-    for (auto j : this->graph_.out_node[i]) {
+    for (auto j : this->graph_.adjacency_list[i]) {
       expr += z_[i][j];
     }
   }

@@ -39,7 +39,7 @@ public:
   /* CPLEX modelling objects */
   IloObjective obj_;
   IloConstraintArray constraints_;
-  int root;
+  int root = 0;
   int terminal;
 
   /* CPLEX variables */
