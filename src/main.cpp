@@ -98,33 +98,22 @@ int main(int argc, char* const* argv) {
   /* Print pre-processing time */
   // std::cout << timer.count<std::chrono::seconds>() << std::endl;
 
-
   /* Solver constructor */
   Solver solver(&args, g);
-  //
+
   solver.solve();
 
-  // for (int i : g.adjacency_list[92]) {
-  //   std::cout << i << " ";
-  // }
-  // std::cout << std::endl;
-
-  // exit(0);
-
   timer.stop();
+
+  /* Remove the dominated points */
+  solver.process_pareto_points();
+
+  /* Print the results */
   std::cout << args.get<std::string>("-input") << ",";
-  // std::cout << args.get<std::string>("-seed") << ",";
   // std::cout << args.get<std::string>("-algorithm") << ",";
-  std::cout << solution << ",";
+  std::cout << solver.hypervolume(max_cost, max_error) << ",";
   std::cout << timer.count<std::chrono::seconds>() << std::endl;
-
-
-  // std::cout << solver._cplex.getBestObjValue() << ",";
-  // std::cout << solver._cplex.getObjValue() << ",";
-  // std::cout << solver._cplex.getMIPRelativeGap()*100 << ",";
-  // std::cout << solver._cplex.getTime() << ",";
-  // std::cout << solver._cplex.getStatus();
-  // std::cout << std::endl;
+  solver.print_points();
 
   return (0);
 }

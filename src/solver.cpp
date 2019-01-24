@@ -209,3 +209,96 @@ void Solver::set_cplex_params(void) {
   // this->cplex_->setParam(IloCplex::HeurFreq, -1);
   // this->cplex_->setParam(IloCplex::EpAGap, 0);
 }
+
+void Solver::process_pareto_points(void) {
+  std::vector<std::pair<int, int>> new_points;
+
+  int i;
+  for (i = 1; i < this->points.size(); i++) {
+    new_points.push_back(this->points[i-1]);
+    if (this->points[i-1].first == this->points[i].first && this->points[i-1].second >= this->points[i].second) {
+      new_points.pop_back();
+    }
+  }
+
+  new_points.push_back(this->points[i-1]);
+
+  if (this->points[i-2].first == this->points[i-1].first && this->points[i-2].second >= this->points[i-1].second) {
+    new_points.pop_back();
+  }
+
+  this->points = new_points;
+}
+
+void Solver::print_points(void) {
+  for (auto p : this->points) {
+    std::cout << p.first << " " << p.second << std::endl;
+  }
+}
+
+void Solver::solve(void) {
+  /* Solve it the first time */
+  this->cplex_->solve();
+
+
+  /* Computes all possible constraints of obj2
+  and store them in an IloNumExprArray      */
+  // std::vector<IloNumExpr> exprArray;
+  // IloNumExprArray (this->env_);
+  // for (int k = 1; k < this->graph_.num_nodes(); k++) {
+  //   IloNumExpr expr(this->env_);
+  //   for (int i = 0; i < this->graph_.num_nodes(); i++) {
+  //     for (auto j : this->graph_.adjacency_list[i]) {
+  //       expr += this->graph_.node[j]*this->x_[i][j][k];
+  //     }
+  //   }
+  //   exprArray.push_back(expr);
+  //   expr.end();
+  // }
+
+  /* Computes the pareto front */
+  while (this->cplex_->getStatus() == IloAlgorithm::Optimal) {
+    std::pair<int, int> aux;
+    aux.first = this->cplex_->getObjValue();
+
+    /* First, computes the value of the second objective
+    It will be stored on variable obj2_value */
+    int obj2_value = 0;
+    for (int k = 1; k < this->graph_.num_nodes(); k++) {
+      int sum = 0;
+      for (int i = 0; i < this->graph_.num_nodes(); i++) {
+        for (auto j : this->graph_.adjacency_list[i]) {
+          sum += this->graph_.node[j] * this->cplex_->getValue(this->x_[i][j][k]);
+        }
+      }
+      if (sum > obj2_value) {
+        obj2_value = sum;
+      }
+    }
+
+    aux.second = obj2_value;
+
+    /* Store the pareto point */
+    this->points.push_back(aux);
+
+    /* Add the new constraint's set */
+    for (int k = 1; k < this->graph_.num_nodes(); k++) {
+      IloNumExpr expr(this->env_);
+      for (int i = 0; i < this->graph_.num_nodes(); i++) {
+        for (auto j : this->graph_.adjacency_list[i]) {
+          expr += this->graph_.node[j]*this->x_[i][j][k];
+        }
+      }
+      this->model_->add(expr < obj2_value);
+      expr.end();
+    }
+
+    /* Solves the problem again */
+    this->cplex_->solve();
+
+    #ifdef DEBUG
+      std::cout << std::endl << std::endl << points.back().first << " - " << points.back().second;
+      std::cout << std::endl << this->cplex_->getStatus() << std::endl << std::endl;
+    #endif
+  }
+}

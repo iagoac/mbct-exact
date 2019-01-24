@@ -1,7 +1,8 @@
 #ifndef SOLVER_HH_
 #define SOLVER_HH_
 
-#include <vector>
+#include <vector>             // std::vector
+#include <utility>            // std::pair
 #include "cplex_includes.hpp" // CPLEX bi-dimensional and tri-dimensional structures
 #include "argparse.hpp"       // Arguments class
 #include "cGraph/release/cgraph.hpp"  // cGraph --> My graph class
@@ -29,7 +30,8 @@ public:
   /* Class variables declaration */
   Args  *args_;     // The arguments class
   // Graph<int, int> graph_;   // The graph instance
-  Digraph<int, int> graph_; // The graph instance
+  Graph<int, int> graph_; // The graph instance
+  std::vector<std::pair<int, int>> points;  // set of pareto points
 
   /* CPLEX common structures */
   IloEnv env_;
@@ -48,7 +50,7 @@ public:
   IloIntVarMatrix z_;
 
   /* Class constructor */
-  Solver(Args *arg, Digraph<int, int> g) {
+  Solver(Args *arg, Graph<int, int> g) {
     this->args_  = arg;
     this->graph_ = g;
     this->model_ = new IloModel(env_);
@@ -56,7 +58,12 @@ public:
     this->initialize();
   }
 
-  void solve(void) { this->cplex_->solve(); }
+  void solve(void);
+
+  /* Postprocessing methods  */
+  void process_pareto_points(void);
+  void hypervolume(int max_cost, int max_error);
+  void print_points(void);
 };
 
 #endif // SOLVER_HH_
