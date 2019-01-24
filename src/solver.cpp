@@ -230,6 +230,41 @@ void Solver::process_pareto_points(void) {
   this->points = new_points;
 }
 
+double Solver::hypervolume(int max_cost, int max_error) {
+  std::pair<int, int> y;
+  std::pair<int, int> z;
+
+  y.first = 300;
+  y.second = 5;
+
+  z.first = 170;
+  z.second = 40;
+
+  std::pair<int, int> nadir;
+
+
+  nadir.first = y.first;
+  nadir.second = z.second;
+
+  if (this->points[0].first < this->points[1].first) {
+    std::reverse(this->points.begin(), this->points.end());
+  }
+
+  double hyp = 0.0;
+  hyp += ( (y.first - this->points[0].first) * (this->points[0].second - y.second) ) / 2;
+  hyp += (y.first - this->points[0].first) * (nadir.second - this->points[0].second);
+
+  for (int i = 0; i < this->points.size() - 1; i++) {
+    hyp += ( (this->points[i].first - this->points[i+1].first) * (this->points[i+1].second - this->points[i].second) ) / 2;
+    hyp += (this->points[i].first - this->points[i+1].first) * (nadir.second - this->points[i+1].second);
+  }
+
+  hyp += ( (this->points.back().first - z.first) * (z.second - this->points.back().second) ) / 2;
+  hyp += (this->points.back().first - z.first) * (nadir.second - z.second);
+
+  return (hyp);
+}
+
 void Solver::print_points(void) {
   for (auto p : this->points) {
     std::cout << p.first << " " << p.second << std::endl;

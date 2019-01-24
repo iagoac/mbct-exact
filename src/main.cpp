@@ -30,7 +30,7 @@ int main(int argc, char* const* argv) {
   // variables used to read the instance
   int a, b, c;
   uint numberOfVertex;
-  uint max_cost, max_error;
+  int max_cost, max_error;
 
   // open the input file
   std::fstream file;
@@ -108,6 +108,10 @@ int main(int argc, char* const* argv) {
   /* Remove the dominated points */
   solver.process_pareto_points();
 
+  solver.print_points();
+
+  std::cout << std::endl << std::endl;
+  
   /* Print the results */
   std::cout << args.get<std::string>("-input") << ",";
   // std::cout << args.get<std::string>("-algorithm") << ",";

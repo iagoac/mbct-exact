@@ -3,6 +3,7 @@
 
 #include <vector>             // std::vector
 #include <utility>            // std::pair
+#include <algorithm>          // std::reverse
 #include "cplex_includes.hpp" // CPLEX bi-dimensional and tri-dimensional structures
 #include "argparse.hpp"       // Arguments class
 #include "cGraph/release/cgraph.hpp"  // cGraph --> My graph class
@@ -62,7 +63,7 @@ public:
 
   /* Postprocessing methods  */
   void process_pareto_points(void);
-  void hypervolume(int max_cost, int max_error);
+  double hypervolume(int max_cost, int max_error);
   void print_points(void);
 };
 
