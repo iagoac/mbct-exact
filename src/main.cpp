@@ -16,7 +16,6 @@ int main(int argc, char* const* argv) {
   argparser.add("-input", ArgParse::Opt::req);
   argparser.add("-nadir", ArgParse::Opt::req);
   argparser.add("-objective", ArgParse::Opt::req);
-  argparser.add("-seed", ArgParse::Opt::req);
   Args args = argparser.parse(argc, argv);
 
   /* Debug initial message */
@@ -30,7 +29,7 @@ int main(int argc, char* const* argv) {
   // variables used to read the instance
   int a, b, c;
   uint numberOfVertex;
-  int max_cost, max_error;
+  std::pair<int, int> max_cost, max_error;
 
   // open the input file
   std::fstream file;
@@ -82,7 +81,7 @@ int main(int argc, char* const* argv) {
     std::cout << "Input found! Let's read it :)" << std::endl;
   #endif
 
-  file >> max_cost >> max_error;
+  file >> max_cost.first >> max_cost.second >> max_error.first >> max_error.second;
   file.close();
 
   #ifdef DEBUG
@@ -108,13 +107,10 @@ int main(int argc, char* const* argv) {
   /* Remove the dominated points */
   solver.process_pareto_points();
 
-  solver.print_points();
-
-  std::cout << std::endl << std::endl;
-  
   /* Print the results */
   std::cout << args.get<std::string>("-input") << ",";
-  // std::cout << args.get<std::string>("-algorithm") << ",";
+  std::cout << args.get<std::string>("-objective") << ",";
+  std::cout << solver.points.size() << ",";
   std::cout << solver.hypervolume(max_cost, max_error) << ",";
   std::cout << timer.count<std::chrono::seconds>() << std::endl;
   solver.print_points();
