@@ -11,7 +11,8 @@ LIBFORMAT		:= static_pic
 CONCERTDIR 		:= $(CPLEXDIR)/concert
 CPLEXLIBDIR		:= $(CPLEXDIR)/cplex/lib/$(SYSTEM)/$(LIBFORMAT)
 CONCERTLIBDIR	:= $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
-MACROS			:= -DIL_STD -DLONG_MAX=0x7FFFFFFFL
+CPLEX_NO_WARN	:= -Wno-ignored-attributes
+MACROS			:= -DIL_STD -DLONG_MAX=0x7FFFFFFFL $(CPLEX_NO_WARN)
 INC				:= -I $(CPLEXDIR)/cplex/include -I $(CONCERTDIR)/include
 LDLIBS			:= -lilocplex -lconcert -lcplex -lm -lpthread -ldl
 LDFLAGS			:= -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR)
