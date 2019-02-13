@@ -190,8 +190,8 @@ void Solver::add_constraints() {
 }
 
 void Solver::set_cplex_params(void) {
-  this->cplex_->setParam(IloCplex::TiLim, 3600);
-  this->cplex_->setParam(IloCplex::Threads, 1);
+  // this->cplex_->setParam(IloCplex::TiLim, 7200);
+  // this->cplex_->setParam(IloCplex::Threads, 1);
   // this->cplex_->setParam(IloCplex::Cliques, -1);
   // this->cplex_->setParam(IloCplex::Covers, -1);
   // this->cplex_->setParam(IloCplex::DisjCuts, -1);
@@ -230,37 +230,28 @@ void Solver::process_pareto_points(void) {
   this->points = new_points;
 }
 
-double Solver::hypervolume(int max_cost, int max_error) {
-  std::pair<int, int> y;
-  std::pair<int, int> z;
-
-  y.first = 300;
-  y.second = 5;
-
-  z.first = 170;
-  z.second = 40;
-
+uintmax_t Solver::hypervolume(std::pair<int, int> max_cost, std::pair<int, int> max_error) {
   std::pair<int, int> nadir;
 
+  nadir.first = max_cost.first;
+  nadir.second = max_cost.second;
 
-  nadir.first = y.first;
-  nadir.second = z.second;
-
+  /* If optimizing z_1 instead of z_2, then reverse the vector */
   if (this->points[0].first < this->points[1].first) {
     std::reverse(this->points.begin(), this->points.end());
   }
 
-  double hyp = 0.0;
-  hyp += ( (y.first - this->points[0].first) * (this->points[0].second - y.second) ) / 2;
-  hyp += (y.first - this->points[0].first) * (nadir.second - this->points[0].second);
+  uintmax_t hyp = 0;
+  hyp += ( (max_cost.first - this->points[0].first) * (this->points[0].second - max_cost.second) ) / 2;
+  hyp += (max_cost.first - this->points[0].first) * (nadir.second - this->points[0].second);
 
   for (int i = 0; i < this->points.size() - 1; i++) {
     hyp += ( (this->points[i].first - this->points[i+1].first) * (this->points[i+1].second - this->points[i].second) ) / 2;
     hyp += (this->points[i].first - this->points[i+1].first) * (nadir.second - this->points[i+1].second);
   }
 
-  hyp += ( (this->points.back().first - z.first) * (z.second - this->points.back().second) ) / 2;
-  hyp += (this->points.back().first - z.first) * (nadir.second - z.second);
+  hyp += ( (this->points.back().first - max_cost.first) * (max_cost.second - this->points.back().second) ) / 2;
+  hyp += (this->points.back().first - max_cost.first) * (nadir.second - max_cost.second);
 
   return (hyp);
 }

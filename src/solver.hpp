@@ -63,7 +63,7 @@ public:
 
   /* Postprocessing methods  */
   void process_pareto_points(void);
-  double hypervolume(int max_cost, int max_error);
+  uintmax_t hypervolume(std::pair<int, int> max_cost, std::pair<int, int> max_error);
   void print_points(void);
 };
 
