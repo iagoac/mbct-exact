@@ -22,7 +22,7 @@ OPT				:= -march=native -Ofast -frename-registers -funroll-loops
 CXXFLAGS  		:= -g -std=c++17 $(OPT) $(MACROS) $(INC)
 
 # Compiler
-SRC       := argparse.cpp solver.cpp main.cpp
+SRC       := argparse.cpp mbct-model.cpp main.cpp
 OBJ       := $(SRC:%.cpp=build/%.o)
 DEP       := $(SRC:%.cpp=deps/%.d)
 

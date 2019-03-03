@@ -4,7 +4,7 @@
 #include <fstream>
 #include "cxxtimer.hpp"
 #include "argparse.hpp"
-#include "solver.hpp"
+#include "mbct-model.hpp"
 #include "cGraph/release/cgraph.hpp"
 
 int main(int argc, char* const* argv) {
@@ -14,7 +14,7 @@ int main(int argc, char* const* argv) {
 
   /* Get the arguments */
   argparser.add("-input", ArgParse::Opt::req);
-  argparser.add("-nadir", ArgParse::Opt::req);
+  // argparser.add("-nadir", ArgParse::Opt::req);
   argparser.add("-objective", ArgParse::Opt::req);
   Args args = argparser.parse(argc, argv);
 
@@ -66,26 +66,29 @@ int main(int argc, char* const* argv) {
   file.close();
 
   #ifdef DEBUG
-    std::cout << "Input readed with sucess. Let's read the nadir file" << std::endl;
+    std::cout << "Input readed with sucess. ";
+    // std::cout << "Let's read the nadir file";
+    std::cout << std::endl;
   #endif
 
   /* Read the file that contains the coordinates of the nadir point */
-  file.open(args.get<std::string>("-nadir"), std::fstream::in);
-
-  if (!file) {
-    std::cout << "Nadir file not found. Aborting" << std::endl;
-    exit(0);
-  }
+  // file.open(args.get<std::string>("-nadir"), std::fstream::in);
+  //
+  // if (!file) {
+  //   std::cout << "Nadir file not found. Aborting" << std::endl;
+  //   exit(0);
+  // }
+  //
+  // #ifdef DEBUG
+  //   std::cout << "Input found! Let's read it :)" << std::endl;
+  // #endif
+  //
+  // file >> max_cost.first >> max_cost.second >> max_error.first >> max_error.second;
+  // file.close();
 
   #ifdef DEBUG
-    std::cout << "Input found! Let's read it :)" << std::endl;
-  #endif
-
-  file >> max_cost.first >> max_cost.second >> max_error.first >> max_error.second;
-  file.close();
-
-  #ifdef DEBUG
-    std::cout << "Nadir point readed with sucess. Let's build the formulation" << std::endl;
+    // std::cout << "Nadir point readed with sucess. ";
+    std::cout << "Let's build the formulation :)" << std::endl;
   #endif
 
   /* Initializing the time counter */
@@ -98,9 +101,13 @@ int main(int argc, char* const* argv) {
   // std::cout << timer.count<std::chrono::seconds>() << std::endl;
 
   /* Solver constructor */
-  Solver solver(&args, g);
+  MBCT solver(&args, g);
 
-  solver.solve();
+  if (args.get<int>("-objective") == 1) {
+    solver.solve_obj1();
+  } else {
+    solver.solve_obj2();
+  }
 
   timer.stop();
 
@@ -111,7 +118,7 @@ int main(int argc, char* const* argv) {
   std::cout << args.get<std::string>("-input") << ",";
   std::cout << args.get<std::string>("-objective") << ",";
   std::cout << solver.points.size() << ",";
-  std::cout << solver.hypervolume(max_cost, max_error) << ",";
+  // std::cout << solver.hypervolume(max_cost, max_error) << ",";
   std::cout << timer.count<std::chrono::seconds>() << std::endl;
   solver.print_points();
 
