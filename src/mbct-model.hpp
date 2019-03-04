@@ -30,7 +30,8 @@ private:
   void big_slack_constraints(void);
 
   /* Methods used by Z(1) and Z(2) solvers */
-  int compute_y(void);
+  int compute_z2_value(void);
+  int compute_z1_value(void);
 
 public:
   /* Class variables declaration */

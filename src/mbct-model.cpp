@@ -297,6 +297,10 @@ void MBCT::process_pareto_points(void) {
     new_points.pop_back();
   }
 
+  if (this->points[i-2].first <= this->points[i-1].first && this->points[i-2].second == this->points[i-1].second) {
+    new_points.pop_back();
+  }
+
   this->points = new_points;
 }
 
@@ -363,7 +367,7 @@ void MBCT::solve_obj1(void) {
 
   /* First, computes the value of the second objective
   It will be stored on variable obj2_value */
-  int obj2_value = this->compute_y();
+  int obj2_value = this->compute_z2_value();
 
   aux.first = std::ceil(this->cplex_->getObjValue());
   aux.second = obj2_value;
@@ -395,7 +399,7 @@ void MBCT::solve_obj1(void) {
     }
 
     /* Get the new Pareto point */
-    obj2_value = this->compute_y();
+    obj2_value = this->compute_z2_value();
     aux.first = std::ceil(this->cplex_->getObjValue() - 0.01 * obj2_value);
     aux.second = obj2_value;
 
@@ -409,7 +413,7 @@ void MBCT::solve_obj1(void) {
   }
 }
 
-int MBCT::compute_y(void) {
+int MBCT::compute_z2_value(void) {
   int obj2_value = 0;
   for (int k = 1; k < this->graph_.num_nodes(); k++) {
     int sum = 0;
@@ -425,14 +429,90 @@ int MBCT::compute_y(void) {
   return (obj2_value);
 }
 
+int MBCT::compute_z1_value(void) {
+  int obj1_value = 0;
+  for (int i = 0; i < this->graph_.num_nodes(); i++)  {
+    for (auto j : this->graph_.adjacency_list[i]) {
+      obj1_value += this->graph_.edge[i][j] * this->cplex_->getValue(this->z_[i][j]);
+    }
+  }
+  return (obj1_value);
+}
+
 void MBCT::solve_obj2(void) {
-  /* Solve it the first time */
+  /* Auxiliary variable that stores a Pareto point */
+  std::pair<int, int> aux;
+
+  /* Computes the constraint associated with
+  with Z_1 and store it in an IloRange var */
+  IloNumExpr expr(this->env_);
+
+  for (int i = 0; i < this->graph_.num_nodes(); i++)  {
+    for (auto j : this->graph_.adjacency_list[i]) {
+      expr += this->graph_.edge[i][j]*z_[i][j];
+    }
+  }
+
+  expr += master_slack_;
+  IloRange z1_constraint(this->env_, -IloInfinity, expr, IloInfinity, "z1_constrained");
+  expr.end();
+
+  /* Solve it the first time
+  We need a small 'gambiarra':
+  We set master_slack_ = 0  */
+  IloExpr exp (this->env_);
+  exp += master_slack_;
+  IloRange range_slack(this->env_, 0, exp, 0, "gambs");
+  this->model_->add(range_slack);
   this->solve();
+
+  /* First, computes the value of the second objective
+  It will be stored on variable obj2_value */
+  int obj1_value = this->compute_z1_value();
+
+  aux.first  = obj1_value;
+  aux.second = std::ceil(this->cplex_->getObjValue());
+
+  this->model_->remove(range_slack);
+  exp.end();
+
+  /* Computes the pareto front */
+  while (1) {
+    /* Store the pareto point */
+    this->points.push_back(aux);
+
+    /* Set the new bounds of the IloRangeArray */
+    IloInt bound_value = obj1_value - 1;
+    z1_constraint.setBounds(bound_value, bound_value);
+
+    /* Add the constraints with
+    the new computed bounds  */
+    this->model_->add(z1_constraint);
+
+    /* Solves the problem again */
+    this->solve();
+    if (this->cplex_->getStatus() != IloAlgorithm::Optimal) {
+      break;
+    }
+
+    /* Get the new Pareto point */
+    obj1_value = this->compute_z1_value();
+    aux.first  = obj1_value;
+    aux.second = std::ceil(this->cplex_->getObjValue());
+
+    /* Remove the constraints */
+    this->model_->remove(z1_constraint);
+
+    #ifdef DEBUG
+      std::cout << std::endl << std::endl << points.back().first << " - " << points.back().second;
+      std::cout << std::endl << this->cplex_->getStatus() << std::endl << std::endl;
+    #endif
+  }
 }
 
 void MBCT::set_cplex_params(void) {
   // this->cplex_->setParam(IloCplex::TiLim, 7200);
-  this->cplex_->setParam(IloCplex::Threads, 1);
+  // this->cplex_->setParam(IloCplex::Threads, 1);
   // this->cplex_->setParam(IloCplex::Cliques, -1);
   // this->cplex_->setParam(IloCplex::Covers, -1);
   // this->cplex_->setParam(IloCplex::DisjCuts, -1);
