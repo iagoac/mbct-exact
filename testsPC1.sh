@@ -30,15 +30,17 @@ function parse_write {
   done
 };
 
-for size in 25 50 100 250 500 750 1000; do
+for size in 25 50; do
   for deg in 3 5 10; do
-    for rep in 1 2 3 4 5 6 7 8 9 10; do
-      echo -n "size = ${size}, average degree = ${deg}, repetition = ${rep} . . ."
-      src/cplex -input instances/akcan-like/a-$size-$deg-$rep.dat -nadir instances/akcan-like/nadir/a-$size-$deg-$rep.csv -objective 1 > $(write_to csv_end);
-      echo " Done!"
-      parse_write
-      echo -en "\r\033[K"
-      echo "${csv_start}${csv_end}" | tee results/a-$size-$deg-$rep.dat
+    for rep in 1 2 3 4 5; do
+      for obj in 1 2; do
+        echo -n "size = ${size}, average degree = ${deg}, repetition = ${rep} . . ."
+        src/cplex -input instances/akcan-like/a-$size-$deg-$rep.dat -objective $obj > $(write_to csv_end);
+        echo " Done!"
+        parse_write
+        echo -en "\r\033[K"
+        echo "${csv_start}${csv_end}" | tee results/obj-$obj/a-$size-$deg-$rep.dat
+      done
     done
   done
 done
