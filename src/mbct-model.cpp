@@ -427,13 +427,6 @@ void MBCT::solve_obj1(void) {
       std::cout << std::endl << this->cplex_->getStatus() << std::endl << std::endl;
     #endif
   }
-
-  /* Auxiliary variable that stores a Pareto point */
-  std::pair<int, int> aux;
-
-  /* Computes all possible constraints of obj2
-  and store them in an IloRangeArray      */
-  IloRangeArray rangeArray(this->env_);
 }
 
 void MBCT::solve_obj1_augmented(void) {
