@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
-#include "cxxtimer.hpp"
 #include "argparse.hpp"
 #include "mbct-model.hpp"
 #include "cGraph/release/cgraph.hpp"
@@ -13,9 +12,10 @@ int main(int argc, char* const* argv) {
   double solution;
 
   /* Get the arguments */
-  argparser.add("-input", ArgParse::Opt::req);
-  // argparser.add("-nadir", ArgParse::Opt::req);
+  argparser.add("-input",     ArgParse::Opt::req);
+  argparser.add("-augmented", ArgParse::Opt::req, { "0", "1" });
   argparser.add("-objective", ArgParse::Opt::req);
+  argparser.add("-time"     , ArgParse::Opt::req);
   Args args = argparser.parse(argc, argv);
 
   /* Debug initial message */
@@ -91,10 +91,6 @@ int main(int argc, char* const* argv) {
     std::cout << "Let's build the formulation :)" << std::endl;
   #endif
 
-  /* Initializing the time counter */
-  cxxtimer::Timer timer;
-  timer.start();
-
   /* If it has some */
   // instance.preprocessing();
   /* Print pre-processing time */
@@ -103,23 +99,40 @@ int main(int argc, char* const* argv) {
   /* Solver constructor */
   MBCT solver(&args, g);
 
+  /* Initializing the time counter */
+  solver.timer.start();
+
   if (args.get<int>("-objective") == 1) {
-    solver.solve_obj1();
+    if (args.get<int>("-augmented") == 1) {
+      solver.solve_obj1_augmented();
+    } else {
+      solver.solve_obj1();
+    }
   } else {
-    solver.solve_obj2();
+    if (args.get<int>("-augmented") == 1) {
+      solver.solve_obj2_augmented();
+    } else {
+      solver.solve_obj2();
+    }
   }
 
-  timer.stop();
+  solver.timer.stop();
+
+  int computed_points = solver.points.size();
 
   /* Remove the dominated points */
   solver.process_pareto_points();
 
+  /* Gets only the instance name */
+  std::string instance_name = args.get<std::string>("-input").substr(args.get<std::string>("-input").find_last_of('/')+1);
+
   /* Print the results */
-  std::cout << args.get<std::string>("-input") << ",";
+  std::cout << instance_name << ",";
   std::cout << args.get<std::string>("-objective") << ",";
+  std::cout << computed_points << ",";
   std::cout << solver.points.size() << ",";
-  // std::cout << solver.hypervolume(max_cost, max_error) << ",";
-  std::cout << timer.count<std::chrono::seconds>() << std::endl;
+  std::cout << solver.total_nodes << ",";
+  std::cout << solver.timer.count<std::chrono::seconds>() << std::endl;
   solver.print_points();
 
   return (0);

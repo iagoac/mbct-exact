@@ -6,6 +6,7 @@
 #include <algorithm>          // std::reverse
 #include "cplex_includes.hpp" // CPLEX bi-dimensional and tri-dimensional structures
 #include "argparse.hpp"       // Arguments class
+#include "cxxtimer.hpp"       // A better implementation of C++ times function
 #include "cGraph/release/cgraph.hpp"  // cGraph --> My graph class
 
 class MBCT {
@@ -17,8 +18,11 @@ private:
 
   /* Methods used by the initialize method */
   void create_variables(void);
+  void create_variables_augmented(void);
   void add_objective_z1(void);
+  void add_objective_z1_augmented(void);
   void add_objective_z2(void);
+  void add_objective_z2_augmented(void);
   void add_constraints(void);
   void set_cplex_params(void);
 
@@ -57,6 +61,11 @@ public:
   IloIntVar master_slack_;
   IloIntVarArray slack_;
 
+  /* Other variables */
+  int total_nodes = 0;
+  bool ended = false;
+  cxxtimer::Timer timer;
+
   /* Class constructor */
   MBCT() {}
   MBCT(Args *arg, Graph<int, int> g) {
@@ -69,8 +78,10 @@ public:
 
   void solve(void) { this->cplex_->solve(); }
 
-  void solve_obj1(void);
-  void solve_obj2(void);
+  void solve_obj1(void);            // epsilon-constraints
+  void solve_obj2(void);            // epsilon-constraints
+  void solve_obj1_augmented(void);  // Augmented epsilon-constraints
+  void solve_obj2_augmented(void);  // Augmented epsilon-constraints
 
   /* Postprocessing methods  */
   void process_pareto_points(void);

@@ -16,17 +16,29 @@ void MBCT::initialize(void) {
     std::cout << "Constructing the problem variables: ";
   #endif
 
-  this->create_variables();
+  if (this->args_->get<int>("-augmented")) {
+    this->create_variables_augmented();
+  } else {
+    this->create_variables();
+  }
 
   #ifdef DEBUG
     std::cout << "Done!" << std::endl;
     std::cout << "Constructing the objective function: ";
   #endif
 
-  if (this->args_->get<int>("-objective") == 1) {
-    this->add_objective_z1();
+  if (this->args_->get<int>("-objective") == 1 ) {
+    if (this->args_->get<int>("-augmented") == 1) {
+      this->add_objective_z1_augmented();
+    } else {
+      this->add_objective_z1();
+    }
   } else {
-    this->add_objective_z2();
+    if (this->args_->get<int>("-augmented") == 1) {
+      this->add_objective_z2_augmented();
+    } else {
+      this->add_objective_z2();
+    }
   }
 
   #ifdef DEBUG
@@ -85,19 +97,40 @@ void MBCT::create_variables(void) {
       z_[i][j] = IloIntVar(this->env_, 0, 1, name);
     }
   }
+}
 
-  master_slack_ = IloIntVar(this->env_, 0, IloIntMax, "master_slack");
+/* Create and initialize the CPLEX variables */
+void MBCT::create_variables_augmented(void) {
+  this->create_variables();
 
   slack_ = IloIntVarArray(this->env_, this->graph_.num_nodes());
-  for (i = 0; i < this->graph_.num_nodes(); i++) {
+  for (int i = 0; i < this->graph_.num_nodes(); i++) {
     char name[50];
     sprintf(name, "slack_%d", i);
     slack_[i] = IloIntVar(this->env_, 0, IloIntMax, name);
   }
+
+  master_slack_ = IloIntVar(this->env_, 0, IloIntMax, "master_slack");
 }
 
 /* Create the objective function */
 void MBCT::add_objective_z1(void) {
+  IloNumExpr expr(this->env_);
+
+  /* min \sum_{(ij) \in E} ( c_{ij} z_{ij}) + exp(slack) */
+  for (int i = 0; i < this->graph_.num_nodes(); i++)  {
+    for (auto j : this->graph_.adjacency_list[i]) {
+      expr += this->graph_.edge[i][j]*z_[i][j];
+    }
+  }
+
+  this->obj_ = IloObjective(this->env_, expr, IloObjective::Minimize);
+  this->model_->add(this->obj_);
+  expr.end();
+}
+
+/* Create the objective function */
+void MBCT::add_objective_z1_augmented(void) {
   IloNumExpr expr(this->env_);
 
   /* min \sum_{(ij) \in E} ( c_{ij} z_{ij}) + exp(slack) */
@@ -115,6 +148,17 @@ void MBCT::add_objective_z1(void) {
 }
 
 void MBCT::add_objective_z2(void) {
+  IloNumExpr expr(this->env_);
+
+  /* min y + exp(slack) */
+  expr += this->y_;
+
+  this->obj_ = IloObjective(this->env_, expr, IloObjective::Minimize);
+  this->model_->add(this->obj_);
+  expr.end();
+}
+
+void MBCT::add_objective_z2_augmented(void) {
   IloNumExpr expr(this->env_);
 
   /* min y + exp(slack) */
@@ -248,7 +292,7 @@ void MBCT::add_constraints() {
 
   /* The augmented e-constraint method
   need this for constraining Z(2)   */
-  if (this->args_->get<int>("-objective") == 1) {
+  if (this->args_->get<int>("-objective") == 1 && this->args_->get<int>("-augmented") == 1) {
     #ifdef DEBUG
       std::cout << "Adding the big slack constraints: ";
     #endif
@@ -332,6 +376,67 @@ void MBCT::print_points(void) {
 }
 
 void MBCT::solve_obj1(void) {
+  /* Solve it the first time */
+  this->cplex_->solve();
+
+  /* Get the number of explored nodes */
+  this->total_nodes += this->cplex_->getNnodes();
+
+  /* Computes the pareto front */
+  while (this->cplex_->getStatus() == IloAlgorithm::Optimal && (timer.count<std::chrono::seconds>() < this->args_->get<int>("-time"))) {
+    std::pair<int, int> aux;
+    aux.first = this->cplex_->getObjValue();
+
+    /* First, computes the value of the second objective
+    It will be stored on variable obj2_value */
+    int obj2_value = 0;
+    for (int k = 1; k < this->graph_.num_nodes(); k++) {
+      int sum = 0;
+      for (int i = 0; i < this->graph_.num_nodes(); i++) {
+        for (auto j : this->graph_.adjacency_list[i]) {
+          sum += this->graph_.node[j] * this->cplex_->getValue(this->x_[i][j][k]);
+        }
+      }
+      if (sum > obj2_value) {
+        obj2_value = sum;
+      }
+    }
+
+    aux.second = obj2_value;
+
+    /* Store the pareto point */
+    this->points.push_back(aux);
+
+    /* Add the new constraint's set */
+    for (int k = 1; k < this->graph_.num_nodes(); k++) {
+      IloNumExpr expr(this->env_);
+      for (int i = 0; i < this->graph_.num_nodes(); i++) {
+        for (auto j : this->graph_.adjacency_list[i]) {
+          expr += this->graph_.node[j]*this->x_[i][j][k];
+        }
+      }
+      this->model_->add(expr < obj2_value);
+      expr.end();
+    }
+
+    /* Solves the problem again */
+    this->cplex_->solve();
+
+    #ifdef DEBUG
+      std::cout << std::endl << std::endl << points.back().first << " - " << points.back().second;
+      std::cout << std::endl << this->cplex_->getStatus() << std::endl << std::endl;
+    #endif
+  }
+
+  /* Auxiliary variable that stores a Pareto point */
+  std::pair<int, int> aux;
+
+  /* Computes all possible constraints of obj2
+  and store them in an IloRangeArray      */
+  IloRangeArray rangeArray(this->env_);
+}
+
+void MBCT::solve_obj1_augmented(void) {
   /* Auxiliary variable that stores a Pareto point */
   std::pair<int, int> aux;
 
@@ -365,6 +470,9 @@ void MBCT::solve_obj1(void) {
   this->model_->add(range_slack);
   this->solve();
 
+  /* Get the number of explored nodes */
+  this->total_nodes += this->cplex_->getNnodes();
+
   /* First, computes the value of the second objective
   It will be stored on variable obj2_value */
   int obj2_value = this->compute_z2_value();
@@ -394,9 +502,13 @@ void MBCT::solve_obj1(void) {
 
     /* Solves the problem again */
     this->solve();
-    if (this->cplex_->getStatus() != IloAlgorithm::Optimal) {
+    if ((this->cplex_->getStatus() != IloAlgorithm::Optimal) || (timer.count<std::chrono::seconds>() > this->args_->get<int>("-time"))) {
+      this->ended = true;
       break;
     }
+
+    /* Get the number of explored nodes */
+    this->total_nodes += this->cplex_->getNnodes();
 
     /* Get the new Pareto point */
     obj2_value = this->compute_z2_value();
@@ -440,6 +552,9 @@ int MBCT::compute_z1_value(void) {
 }
 
 void MBCT::solve_obj2(void) {
+
+}
+void MBCT::solve_obj2_augmented(void) {
   /* Auxiliary variable that stores a Pareto point */
   std::pair<int, int> aux;
 
@@ -466,6 +581,9 @@ void MBCT::solve_obj2(void) {
   this->model_->add(range_slack);
   this->solve();
 
+  /* Get the number of explored nodes */
+  this->total_nodes += this->cplex_->getNnodes();
+
   /* First, computes the value of the second objective
   It will be stored on variable obj2_value */
   int obj1_value = this->compute_z1_value();
@@ -491,9 +609,13 @@ void MBCT::solve_obj2(void) {
 
     /* Solves the problem again */
     this->solve();
-    if (this->cplex_->getStatus() != IloAlgorithm::Optimal) {
+    if ((this->cplex_->getStatus() != IloAlgorithm::Optimal) || (timer.count<std::chrono::seconds>() >> this->args_->get<int>("-time"))) {
+      this->ended = true;
       break;
     }
+
+    /* Get the number of explored nodes */
+    this->total_nodes += this->cplex_->getNnodes();
 
     /* Get the new Pareto point */
     obj1_value = this->compute_z1_value();
