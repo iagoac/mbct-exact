@@ -545,7 +545,41 @@ int MBCT::compute_z1_value(void) {
 }
 
 void MBCT::solve_obj2(void) {
+  /* Solve it the first time */
+  this->cplex_->solve();
 
+  /* Get the number of explored nodes */
+  this->total_nodes += this->cplex_->getNnodes();
+
+  /* Computes the pareto front */
+  while (this->cplex_->getStatus() == IloAlgorithm::Optimal && (timer.count<std::chrono::seconds>() < this->args_->get<int>("-time"))) {
+    std::pair<int, int> aux;
+    aux.second = this->cplex_->getObjValue();
+
+    aux.first = this->compute_z1_value();
+
+    /* Store the pareto point */
+    this->points.push_back(aux);
+
+    /* Add the new constraint's set */
+    IloNumExpr expr(this->env_);
+    /* min \sum_{(ij) \in E} ( c_{ij} z_{ij}) */
+    for (int i = 0; i < this->graph_.num_nodes(); i++)  {
+      for (auto j : this->graph_.adjacency_list[i]) {
+        expr += this->graph_.edge[i][j]*z_[i][j];
+      }
+    }
+    this->model_->add(expr < aux.first);
+    expr.end();
+
+    /* Solves the problem again */
+    this->cplex_->solve();
+
+    #ifdef DEBUG
+      std::cout << std::endl << std::endl << points.back().first << " - " << points.back().second;
+      std::cout << std::endl << this->cplex_->getStatus() << std::endl << std::endl;
+    #endif
+  }
 }
 void MBCT::solve_obj2_augmented(void) {
   /* Auxiliary variable that stores a Pareto point */
