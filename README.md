@@ -7,15 +7,15 @@ The instances and the results are also available at [Mendeley](http://dx.doi.org
 If you are using these codes in your paper, please cite the original paper publisehd in Annals of Operations Research:
 
 >@article{Carvalho2020,
-  title={An exact approach for the Minimum-Cost Bounded-Error Calibration Tree problem},
-  author={Carvalho, Iago A and Ribeiro, Marco A},
-  journal={Annals of Operations Research},
-  volume={287},
-  number={1},
-  pages={109--126},
-  year={2020},
-  publisher={Springer},
-  doi={10.1007/s10479-019-03443-4}
+  title={An exact approach for the Minimum-Cost Bounded-Error Calibration Tree problem},  
+  author={Carvalho, Iago A and Ribeiro, Marco A},  
+  journal={Annals of Operations Research},  
+  volume={287},  
+  number={1},  
+  pages={109--126},  
+  year={2020},  
+  publisher={Springer},  
+  doi={10.1007/s10479-019-03443-4}  
 }
 
 Furthermore, if you are using the dataset, please cite the Mendeley repository:
@@ -25,6 +25,6 @@ title={Data for "An exact approach for the minimum-cost bounded-error calibratio
 author={Carvalho, Iago A.},   
 howPublished={\url{https://doi.org/10.17632/3kb6hwbz8r.2}},  
 year={2020},  
-doi={https://doi.org/10.17632/3kb6hwbz8r.2},
+doi={https://doi.org/10.17632/3kb6hwbz8r.2},  
 note={Mendeley Data, v. 2.0}  
 }
