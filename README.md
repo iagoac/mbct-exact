@@ -6,7 +6,7 @@ The instances and the results are also available at [Mendeley](http://dx.doi.org
 
 If you are using these codes in your paper, please cite the original paper publisehd in Annals of Operations Research:
 
->@article{Carvalho2020,
+>@article{Carvalho2020,  
   title={An exact approach for the Minimum-Cost Bounded-Error Calibration Tree problem},  
   author={Carvalho, Iago A and Ribeiro, Marco A},  
   journal={Annals of Operations Research},  
